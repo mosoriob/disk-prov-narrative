@@ -1,3 +1,7 @@
+import json
+import logging
+from os import system
+import re
 from typing import List
 import jinja2
 from prov.model import ProvDocument, ProvRecord, ProvBundle
@@ -5,7 +9,7 @@ from prov.dot import prov_to_dot
 from prov.constants import PROV_MEMBERSHIP, PROV_DERIVATION, PROV_GENERATION
 from termcolor import cprint
 
-from constants import HYPOTHESIS_BUNDLE_IDENTIFIER, TRIGGER_BUNDLE_IDENTIFIER, QUESTION_BUNDLE_IDENTIFIER, HYPOTHESIS_VARIABLES_BINDING, QUESTION_VARIABLES_BINDING, META_WORKFLOW_VARIABLES_BINDING
+from constants import DISK_ONTOLOGY_CONFIDENCE_REPORT, DISK_ONTOLOGY_CONFIDENCE_REPORT_LOCALNAME, DISK_ONTOLOGY_TRIGGER_LINE_OF_INQUIRY, HYPOTHESIS_BUNDLE_IDENTIFIER, META_WORKFLOW_INPUT_FILE_BINDING, TRIGGER_BUNDLE_IDENTIFIER, QUESTION_BUNDLE_IDENTIFIER, HYPOTHESIS_VARIABLES_BINDING, QUESTION_VARIABLES_BINDING, META_WORKFLOW_VARIABLES_BINDING
 from templateHandler import render_template
 
 
@@ -13,7 +17,7 @@ class DataNarrative:
     def __init__(self, provDocumentWrapper, hypothesisName):
         self.provDocumentWrapper = provDocumentWrapper
         # Variables values selected by the user
-        self.questionVariables = None
+        self.questionVariables = {}
         # Variables values found by the data query
         self.dataQueryVariables: List = None
         # The data source used to find the data
@@ -26,10 +30,13 @@ class DataNarrative:
         self.numberSetsReturned = None
         self.totalNumberSets = None
         self.workflowName = None
-        self.workflowParameters = None
-        self.workflowVariables = None
+        self.workflowParameters = {}
+        self.workflowInputFiles = {}
         self.optionalParametersNotUsed = None
+        self.workflowInputFilesBinding = {}
+        self.confidenceValue = None
         self.create_hypotheses_narrative(hypothesisName)
+
         self.arguments = {
             'dataSource': self.dataSource,
             'dataQueryVariables': self.dataQueryVariables,
@@ -40,10 +47,11 @@ class DataNarrative:
             'totalSets': self.totalNumberSets,
             'workflowName': self.workflowName,
             'workflowParameters': self.workflowParameters,
-            'workflowValues': self.workflowVariables,
             'optionalParametersNotUsed': self.optionalParametersNotUsed,
             # Added by Maximiliano
             'questionVariables': self.questionVariables,
+            'workflowInputFiles': self.workflowInputFilesBinding,
+            'confidenceValue': self.confidenceValue,
         }
         validate_values(self.arguments)
         self.text = self.render_template2('cohort.txt.jinja')
@@ -89,9 +97,8 @@ class DataNarrative:
             QUESTION_BUNDLE_IDENTIFIER, questionVariablesCollection, PROV_MEMBERSHIP, True)
 
         # Trigger properties
-        triggerLineOfInquiryIdentifier = "http://disk-project.org/ontology/disk#TriggeredLineOfInquiry"
         triggerLineOfInquiries: ProvRecord = self.provDocumentWrapper.get_records_by_type(
-            TRIGGER_BUNDLE_IDENTIFIER, triggerLineOfInquiryIdentifier)
+            TRIGGER_BUNDLE_IDENTIFIER, DISK_ONTOLOGY_TRIGGER_LINE_OF_INQUIRY)
 
         cprint("The user selects a question template: ", None, attrs=['bold'])
         print(questionEntity.label)
@@ -107,7 +114,7 @@ class DataNarrative:
             questionVariable: ProvRecord = self.provDocumentWrapper.get_record(
                 QUESTION_BUNDLE_IDENTIFIER, questionVariableQualifiedName[0].localpart)
             questionVariableLabel: str = questionVariable.label
-            print(questionVariableLabel + ' = ' + hypothesisVariableLabel)
+            self.questionVariables[questionVariableLabel] = hypothesisVariableLabel
 
         cprint("The question to be answered is: ", None, attrs=['bold'])
         print(hypothesis_label)
@@ -131,7 +138,7 @@ class DataNarrative:
             execution: ProvRecord = self.provDocumentWrapper.get_record(
                 TRIGGER_BUNDLE_IDENTIFIER, executionQualifiedName.localpart)
 
-            # Get MetaWorkflow Bindings
+            # Get MetaWorkflow Variables Bindings
             metaWorkflowBindingId = triggerLineOfInquiry.identifier.localpart + \
                 '/' + META_WORKFLOW_VARIABLES_BINDING
             metaWorkflowBindings: ProvRecord = self.provDocumentWrapper.get_record(
@@ -139,6 +146,22 @@ class DataNarrative:
             metaWorkflowBindingsMembersId = self.provDocumentWrapper.get_records_associated(
                 TRIGGER_BUNDLE_IDENTIFIER, metaWorkflowBindings, PROV_MEMBERSHIP, True)
 
+            # Get MetaWorkflow InputFile Bindings
+            metaWorkflowInputFileBindingId = triggerLineOfInquiry.identifier.localpart + \
+                '/' + META_WORKFLOW_INPUT_FILE_BINDING
+            metaWorkflowInputFileBindings: ProvRecord = self.provDocumentWrapper.get_record(
+                TRIGGER_BUNDLE_IDENTIFIER,  metaWorkflowInputFileBindingId)
+            metaWorkflowInputFileBindingsMembersId = self.provDocumentWrapper.get_records_associated(
+                TRIGGER_BUNDLE_IDENTIFIER, metaWorkflowInputFileBindings, PROV_MEMBERSHIP, True)
+
+            # Get confidence value
+            confidenceValueId = triggerLineOfInquiry.identifier.localpart + \
+                '/' + DISK_ONTOLOGY_CONFIDENCE_REPORT_LOCALNAME
+            confidenceValue = self.provDocumentWrapper.get_record(
+                TRIGGER_BUNDLE_IDENTIFIER, confidenceValueId)
+            self.confidenceValue = list(confidenceValue.value)
+
+            # Print the data query
             cprint("The question was answered by the following data source: ",
                    None, attrs=['bold'])
             print(dataSourceLabel)
@@ -146,16 +169,70 @@ class DataNarrative:
             cprint("The run is: ", None, attrs=['bold'])
             print(execution.label)
 
+            for metaWorkflowInputFileBindingId in metaWorkflowInputFileBindingsMembersId:
+                metaWorkflowInputFileBinding: ProvRecord = self.provDocumentWrapper.get_record(
+                    TRIGGER_BUNDLE_IDENTIFIER, metaWorkflowInputFileBindingId.localpart)
+                value: str = metaWorkflowInputFileBinding.value
+                label: str = metaWorkflowInputFileBinding.label
+                value = handle_set(value)
+                new_label = label.split('#')[-1]
+                self.workflowInputFiles[new_label] = value
+            self.numberSetsReturned = find_file_extension_by_string(
+                self.workflowInputFiles)
+
             cprint("The meta workflow bindings are: ", None, attrs=['bold'])
             for metaWorkflowBindingId in metaWorkflowBindingsMembersId:
                 metaWorkflowBinding: ProvRecord = self.provDocumentWrapper.get_record(
                     TRIGGER_BUNDLE_IDENTIFIER, metaWorkflowBindingId.localpart)
-                metaWorkflowBindingLabel: str = metaWorkflowBinding.value
-                print(metaWorkflowBindingLabel)
+                value: str = metaWorkflowBinding.value
+                label: str = metaWorkflowBinding.label
+                value = handle_set(value)
+
+                if len(value) > 0:
+                    if value[0] not in self.workflowInputFiles:
+                        self.workflowParameters[label] = value
+                    else:
+                        self.workflowInputFilesBinding[label] = value
+
+        self.dataSource = dataSourceLabel
 
 
 def validate_values(values):
     # Loop through the values and check if they are valid
     for key, value in values.items():
         if value is None:
-            print('The value for ' + key + ' is null')
+            logging.warning('The value for ' + key + ' is null')
+
+
+def handle_set(data: set):
+    value_list = None
+    # convert set to list
+    try:
+        value_list = list(data)[0]
+    except:
+        logging.error("Unable to convert the set to list: " + str(data))
+        system.exit(1)
+
+    try:
+        # remove the first and last character
+        if value_list.startswith('['):
+            value_list = value_list[1:]
+        if value_list.endswith(']'):
+            value_list = value_list[:-1]
+        values = value_list.split(', ')
+    except:
+        logging.error("Unable to split the value: " + value_list)
+        system.exit(1)
+    return values
+
+
+def find_file_extension_by_string(filenames: List[str]):
+    # Find the file extension
+    file_extension_counter = {}
+    for filename in filenames:
+        file_extension = filename.split('.')[-1]
+        if file_extension in file_extension_counter:
+            file_extension_counter[file_extension] += 1
+        else:
+            file_extension_counter[file_extension] = 1
+    return file_extension_counter

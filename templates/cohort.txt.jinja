@@ -1,7 +1,22 @@
-A Cohort was sampled by querying the data sourrce: {{ dataSource }} by {{ dataQueryVariables }}. Additional metrics  {{ deltaQueryDelta }} were extracted from {{ deltaQueryDeltaLocations }}.
-This query resulted in {{numberSetsReturned}} {{fileFormat}} datasets out of {{totalSets}} datasets available in the catalog.
+A Cohort was sampled by querying the data source: {{ dataSource }} by the following Question Variables:
+{% for key, value in questionVariables.items()-%}
+ -  {{key}} = "{{value}}"
+{% endfor %}
+{% if deltaQueryDelta -%}
+Additional metrics  {{ deltaQueryDelta }} were extracted from {{ deltaQueryDeltaLocations }}.
+{% endif -%}
+This query resulted in {% for key, value in numberSetsReturned.items() %} {{value}} {{key}} files {% endfor -%} datasets  out of {{totalSets}} datasets available in the catalog.
 
-{{numberSetsReturned}} {{fileFormat}} datasets were used as the input collection to the {{workflowName}}.
+For the workflow {{workflowName}} the following inputs were used:
+{% for key , value in workflowInputFiles.items() -%} {{value | length}} datasets were used as the input collection {{ key }} {% endfor -%}.
 
-Additional required parameters {{workflowParameters}} were mapped to the values {{workflowValues}}. The optional parameters {{optionalParametersNotUsed}} were not used in the workflow.
-{# The workflow resulted in a p value of {pValue}. The p value was derived by {user generated description}. {deltaNum} new datasets were added to the datasource which triggered this line of inquiry. Consequently the p value has changed from {pastPVal} to {newPVal} #}
+Additional required parameters are mapped to the values
+{% for key , value in workflowParameters.items() -%}
+  {{key}} was mapped to {{value}}
+{% endfor -%}
+
+The optional parameters {{optionalParametersNotUsed}} were not used in the workflow.
+The workflow resulted in a p value of {{ confidenceValue }}. The p value was derived by {user generated description}.
+
+{#
+{deltaNum} new datasets were added to the datasource which triggered this line of inquiry. Consequently the p value has changed from {pastPVal} to {newPVal} #}
