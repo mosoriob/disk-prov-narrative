@@ -17,3 +17,5 @@ DISK_ONTOLOGY_HAS_CONFIDENCE_VALUE = DISK_ONTOLOGY + \
     DISK_ONTOLOGY_HAS_CONFIDENCE_VALUE_LOCALNAME
 
 DISK_ONTOLOGY_TRIGGER_LINE_OF_INQUIRY = "http://disk-project.org/ontology/disk#TriggeredLineOfInquiry"
+PROV_GENERATED_AT_TIME = "http://www.w3.org/ns/prov#generatedAtTime"
+PROV_GENERATED_AT_TIME_LOCALNAME = "generatedAtTime"
