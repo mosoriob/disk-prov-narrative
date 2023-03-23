@@ -21,6 +21,3 @@ The workflow resulted in a p value of {{ confidenceValue }}. The p value was der
 {% for diff in diffs -%}
   A new trigger line of inquiry was triggered using {% for key, value in diff.numberSetsReturned.items() %} {{value}} {{key}} files {% endfor -%}. Consequently the p value has changed  to {{diff.confidenceValue}}.
 {% endfor -%}
-
-{#
-{deltaNum} new datasets were added to the datasource which triggered this line of inquiry. Consequently the p value has changed from {pastPVal} to {newPVal} #}

@@ -35,7 +35,6 @@ class ProvDocumentWrapper:
         self.doc.get_provn()
         for bundle in self.doc.bundles:
             bundle_identifier = str(bundle.identifier.localpart)
-            print("Bundle identifier: " + bundle_identifier)
             default_namespace = bundle.get_default_namespace()
             self.bundles[bundle_identifier] = bundle
 

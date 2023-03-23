@@ -22,7 +22,8 @@ class TriggerSummary:
         self.workflowInputFilesBinding = {}
         self.confidenceValue = None
         self.generatedAtTime = None
-
+        self.dataSource = None
+        self.workflowName = None
         dataSource: ProvRecord = self.provDocumentWrapper.get_record(
             TRIGGER_BUNDLE_IDENTIFIER, 'dataSource')
         dataSourceLabel: str = dataSource.label

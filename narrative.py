@@ -35,7 +35,7 @@ class DataNarrative:
         trigger = TriggerSummary(self.provDocumentWrapper, triggers[0])
 
         self.arguments = {
-            'dataSource': self.dataSource,
+            'dataSource': trigger.dataSource,
             'dataQueryVariables': self.dataQueryVariables,
             'dataQueryDelta': self.dataQueryDelta,
             'dataQueryDeltaLocations': self.dataQueryDeltaLocations,
@@ -62,7 +62,6 @@ class DataNarrative:
                 'generatedAtTime': trigger.generatedAtTime,
             }
             self.diffs.append(diff)
-
         self.text = self.render_template2('cohort.txt.jinja')
 
     def render_template2(self, template_name):
