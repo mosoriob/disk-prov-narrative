@@ -8,7 +8,15 @@
       "name": "Python: main.py",
       "type": "python",
       "request": "launch",
+      // args python main.py -i examples/neuro/document.json -n Hypothesis-4CGdVLyttD07
       "program": "main.py",
+      "args": [
+        "-i",
+        "examples/neuro/document.json",
+        "-n",
+        "Hypothesis-4CGdVLyttD07"
+      ],
+
       "console": "integratedTerminal",
       "justMyCode": false
     }
